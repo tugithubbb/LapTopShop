@@ -25,11 +25,39 @@ public class Order {
     private long id;
 
     private double totalPrice;
+    private String status;
     private String receiverName;
 
     private String receiverAddress;
 
     private String receiverPhone;
+    private String paymentRef;
+    private String paymentStatus;
+    private String paymentMethod;
+
+    public String getPaymentRef() {
+        return paymentRef;
+    }
+
+    public void setPaymentRef(String paymentRef) {
+        this.paymentRef = paymentRef;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
 
     public String getReceiverName() {
         return receiverName;
@@ -62,8 +90,6 @@ public class Order {
     public void setStatus(String status) {
         this.status = status;
     }
-
-    private String status;
 
     @ManyToOne()
     @JoinColumn(name = "user_id")

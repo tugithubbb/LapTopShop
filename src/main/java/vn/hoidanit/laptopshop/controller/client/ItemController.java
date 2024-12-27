@@ -1,9 +1,11 @@
 package vn.hoidanit.laptopshop.controller.client;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +24,7 @@ import vn.hoidanit.laptopshop.domain.Product_;
 import vn.hoidanit.laptopshop.domain.User;
 import vn.hoidanit.laptopshop.domain.dto.ProductCriteriaDTO;
 import vn.hoidanit.laptopshop.service.ProductService;
+import vn.hoidanit.laptopshop.service.VNPayService;
 import vn.hoidanit.laptopshop.service.specification.ProductSpecs;
 
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +37,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Controller
 public class ItemController {
     private final ProductService productService;
+    private final VNPayService vnPayService;
 
-    public ItemController(ProductService productService) {
+    public ItemController(ProductService productService, VNPayService vnPayService) {
         this.productService = productService;
+        this.vnPayService = vnPayService;
     }
 
     @GetMapping("/product/{id}")
@@ -107,7 +112,6 @@ public class ItemController {
 
         model.addAttribute("cartDetails", cartDetails);
         model.addAttribute("totalPrice", totalPrice);
-
         return "client/cart/checkout";
     }
 
@@ -129,19 +133,33 @@ public class ItemController {
             HttpServletRequest request,
             @RequestParam("receiverName") String receiverName,
             @RequestParam("receiverAddress") String receiverAddress,
-            @RequestParam("receiverPhone") String receiverPhone) {
+            @RequestParam("receiverPhone") String receiverPhone,
+            @RequestParam("paymentMethod") String paymentMethod,
+            @RequestParam("totalPrice") String totalPrice) throws UnsupportedEncodingException {
         // get user
         User currentUser = new User(); // null
         HttpSession session = request.getSession(false);
         long id = (long) session.getAttribute("id");
         currentUser.setId(id);
-        this.productService.handlePlaceOrder(currentUser, session, receiverName, receiverAddress, receiverPhone);
+        final String uuid = UUID.randomUUID().toString().replace("-", "");
+        this.productService.handlePlaceOrder(currentUser, session, receiverName, receiverAddress, receiverPhone,
+                paymentMethod, uuid);
+        if (!paymentMethod.equals("CODE")) {
+            String ip = this.vnPayService.getIpAddress(request);
+            String vnUrl = this.vnPayService.generateVNPayURL(Double.parseDouble(totalPrice), uuid, ip);
+            return "redirect:" + vnUrl;
+        }
 
-        return "redirect:thanks";
+        return "redirect:/thanks";
     }
 
     @GetMapping("/thanks")
-    public String getThankYouPage(Model model) {
+    public String getThankYouPage(Model model, @RequestParam("vpn_ResponseCode") Optional<String> vnpayResponseCode,
+            @RequestParam("vnp_Txnref") Optional<String> paymentRef) {
+        if (vnpayResponseCode.isPresent() && paymentRef.isPresent()) {
+            String paymentStatus = vnpayResponseCode.equals("00") ? "PAYMENT_SUCCEED" : "PAYMENT_FAILED";
+            this.productService.updatePaymentStatus(paymentRef.get(), paymentStatus);
+        }
         return "client/cart/thanks";
     }
 

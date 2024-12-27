@@ -2,6 +2,7 @@ package vn.hoidanit.laptopshop.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -238,7 +239,6 @@ public class ProductService {
             Optional<Product> product = this.productRepository.findById(productId);
 
             if (product.isPresent()) {
-
                 Product realProduct = product.get();
                 // check san pham da tung duoc them vao gio hang truoc day chua ?
                 CartDetail oldDetail = this.cartDetailRepository.findByCartAndProduct(cart, realProduct);
@@ -292,7 +292,7 @@ public class ProductService {
     }
 
     public void handleUpdateCartBeforeCheckout(List<CartDetail> cartDetails) {
-        if (cartDetails == null && cartDetails.isEmpty()) {
+        if (cartDetails == null || cartDetails.isEmpty()) {
             System.out.println("cartDetails is null or empty.");
             return;
         }
@@ -310,7 +310,7 @@ public class ProductService {
     }
 
     public void handlePlaceOrder(User user, HttpSession session, String receiverName, String receiverAddress,
-            String receiverPhone) {
+            String receiverPhone, String paymentMethod, String uuid) {
         // Step 1: get cart by user
         Cart cart = this.cartRepository.findByUser(user);
         if (cart != null) {
@@ -324,6 +324,10 @@ public class ProductService {
                 order.setReceiverPhone(receiverPhone);
                 order.setStatus("PENDING");
 
+                order.setPaymentMethod(paymentMethod);
+                order.setPaymentStatus("PAYMENT_UNPAID");
+                order.setPaymentRef(paymentMethod.equals("COD") ? "UNKNOW" : uuid);
+
                 double sum = 0;
                 for (CartDetail cartDetail : cartDetails) {
                     sum += cartDetail.getPrice();
@@ -331,7 +335,6 @@ public class ProductService {
                 order.setTotalPrice(sum);
                 order = this.orderRepository.save(order);
                 // create orderDetail
-
                 for (CartDetail cartDetail : cartDetails) {
                     OrderDetail orderDetail = new OrderDetail();
                     orderDetail.setOrder(order);
@@ -353,6 +356,15 @@ public class ProductService {
 
         }
 
+    }
+
+    public void updatePaymentStatus(String paymentRef, String paymentStatus) {
+        Optional<Order> orderOptional = this.orderRepository.findByPaymentRef(paymentRef);
+        if (orderOptional.isPresent()) {
+            Order order = orderOptional.get();
+            order.setPaymentStatus(paymentStatus);
+            this.orderRepository.save(order);
+        }
     }
 
 }
